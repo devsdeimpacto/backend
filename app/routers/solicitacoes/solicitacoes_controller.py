@@ -522,3 +522,76 @@ async def atualizar_solicitacao(
         "ordem_servico_id": solicitacao.ordem_servico.id,
         "numero_os": solicitacao.ordem_servico.numero_os,
     }
+
+
+@router.delete(
+    '/{solicitacao_id}',
+    status_code=HTTPStatus.NO_CONTENT
+)
+def deletar_solicitacao(
+    solicitacao_id: int,
+    session: T_Session
+):
+    """
+    Deleta uma solicitação de coleta e sua ordem de
+    serviço associada.
+    
+    IMPORTANTE: Este endpoint deleta:
+    - A solicitação de coleta
+    - A ordem de serviço associada (em cascata)
+    
+    NÃO deleta outras entidades como:
+    - Empresa, Ponto de Coleta ou Catador
+      (apenas remove as referências)
+    """
+    solicitacao = session.scalar(
+        select(SolicitacaoColeta)
+        .where(SolicitacaoColeta.id == solicitacao_id)
+    )
+    
+    if not solicitacao:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail='Solicitação de coleta não encontrada'
+        )
+    
+    session.delete(solicitacao)
+    session.commit()
+    
+    return None
+
+
+@router.delete(
+    '/ordens-servico/{ordem_servico_id}',
+    status_code=HTTPStatus.NO_CONTENT
+)
+def deletar_ordem_servico(
+    ordem_servico_id: int,
+    session: T_Session
+):
+    """
+    Deleta apenas uma ordem de serviço específica.
+    
+    ATENÇÃO: A solicitação de coleta associada
+    permanecerá no sistema.
+    
+    NÃO deleta outras entidades como:
+    - Solicitação de Coleta
+    - Empresa, Ponto de Coleta ou Catador
+      (apenas remove as referências)
+    """
+    ordem_servico = session.scalar(
+        select(OrdemServico)
+        .where(OrdemServico.id == ordem_servico_id)
+    )
+    
+    if not ordem_servico:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail='Ordem de serviço não encontrada'
+        )
+    
+    session.delete(ordem_servico)
+    session.commit()
+    
+    return None

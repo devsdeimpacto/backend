@@ -104,7 +104,8 @@ class SolicitacaoColeta(Base):
     ordem_servico = relationship(
         "OrdemServico",
         back_populates="solicitacao",
-        uselist=False
+        uselist=False,
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self):
