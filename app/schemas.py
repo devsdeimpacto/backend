@@ -87,6 +87,8 @@ class OrdemServicoResponse(BaseModel):
     id: int
     numero_os: str
     status: StatusOSEnum
+    latitude: Optional[float]
+    longitude: Optional[float]
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -111,6 +113,8 @@ class OrdemServicoList(BaseModel):
                         "id": 1,
                         "numero_os": "OS-2025-00001",
                         "status": "PENDENTE",
+                        "latitude": -23.5505,
+                        "longitude": -46.6333,
                         "created_at": "2025-11-02T10:30:00Z",
                         "updated_at": None
                     }
@@ -129,6 +133,8 @@ class SolicitacaoColetaResponse(BaseModel):
     quantidade_itens: int
     endereco: str
     foto_url: Optional[str]
+    latitude: Optional[float]
+    longitude: Optional[float]
     created_at: datetime
     ordem_servico_id: int
     numero_os: str
@@ -156,6 +162,7 @@ class StatusCatadorEnum(str, Enum):
 class EmpresaCreate(BaseModel):
     nome: str = Field(..., min_length=3, max_length=255)
     cnpj: str = Field(..., min_length=14, max_length=18)
+    endereco: str = Field(..., min_length=10, max_length=500)
     telefone: str = Field(..., min_length=10, max_length=20)
     email: EmailStr
     status: Optional[StatusEmpresaEnum] = StatusEmpresaEnum.ATIVA
@@ -181,6 +188,7 @@ class EmpresaCreate(BaseModel):
             "example": {
                 "nome": "EcoColeta Ltda",
                 "cnpj": "12.345.678/0001-90",
+                "endereco": "Av Paulista, 1000 - São Paulo/SP",
                 "telefone": "11987654321",
                 "email": "contato@ecocoleta.com.br",
                 "status": "ATIVA"
@@ -190,6 +198,9 @@ class EmpresaCreate(BaseModel):
 
 class EmpresaUpdate(BaseModel):
     nome: Optional[str] = Field(None, min_length=3, max_length=255)
+    endereco: Optional[str] = Field(
+        None, min_length=10, max_length=500
+    )
     telefone: Optional[str] = Field(None, min_length=10, max_length=20)
     email: Optional[EmailStr] = None
     status: Optional[StatusEmpresaEnum] = None
@@ -209,9 +220,12 @@ class EmpresaResponse(BaseModel):
     id: int
     nome: str
     cnpj: str
+    endereco: str
     telefone: str
     email: str
     status: StatusEmpresaEnum
+    latitude: Optional[float]
+    longitude: Optional[float]
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -289,6 +303,8 @@ class PontoColetaResponse(BaseModel):
     horario_funcionamento: str
     telefone: str
     status: StatusPontoColetaEnum
+    latitude: Optional[float]
+    longitude: Optional[float]
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -445,6 +461,8 @@ class SolicitacaoColetaList(BaseModel):
                         "quantidade_itens": 5,
                         "endereco": "Rua Exemplo, 123",
                         "foto_url": "https://storage.exemplo.com/fotos/12345.jpg",
+                        "latitude": -23.5505,
+                        "longitude": -46.6333,
                         "created_at": "2025-11-02T10:30:00Z",
                         "ordem_servico_id": 1,
                         "numero_os": "OS-2025-00001"

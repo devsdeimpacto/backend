@@ -12,6 +12,7 @@ from app.schemas import (
     PontoColetaUpdate,
     PontoColetaResponse
 )
+from app.geocoding_service import GeocodingService
 
 router = APIRouter(
     prefix='/pontos-coleta',
@@ -26,7 +27,7 @@ T_Session = Annotated[Session, Depends(get_session)]
     status_code=HTTPStatus.CREATED,
     response_model=PontoColetaResponse
 )
-def criar_ponto_coleta(
+async def criar_ponto_coleta(
     ponto_data: PontoColetaCreate,
     session: T_Session
 ):
@@ -44,13 +45,26 @@ def criar_ponto_coleta(
             detail='Empresa não encontrada'
         )
 
+    # Geocodifica o endereço
+    coordenadas = await GeocodingService.geocode_address(
+        ponto_data.endereco
+    )
+    
+    latitude = None
+    longitude = None
+    if coordenadas:
+        latitude = coordenadas.get("latitude")
+        longitude = coordenadas.get("longitude")
+
     novo_ponto = PontoColeta(
         empresa_id=ponto_data.empresa_id,
         nome=ponto_data.nome,
         endereco=ponto_data.endereco,
         horario_funcionamento=ponto_data.horario_funcionamento,
         telefone=ponto_data.telefone,
-        status=ponto_data.status
+        status=ponto_data.status,
+        latitude=latitude,
+        longitude=longitude,
     )
 
     session.add(novo_ponto)
@@ -132,7 +146,7 @@ def listar_pontos_por_empresa(
     status_code=HTTPStatus.OK,
     response_model=PontoColetaResponse
 )
-def atualizar_ponto_coleta(
+async def atualizar_ponto_coleta(
     ponto_id: int,
     ponto_data: PontoColetaUpdate,
     session: T_Session
@@ -152,6 +166,15 @@ def atualizar_ponto_coleta(
 
     # Atualiza apenas os campos fornecidos
     update_data = ponto_data.dict(exclude_unset=True)
+
+    # Se o endereço foi alterado, geocodificar novamente
+    if 'endereco' in update_data:
+        coordenadas = await GeocodingService.geocode_address(
+            update_data['endereco']
+        )
+        if coordenadas:
+            update_data['latitude'] = coordenadas.get("latitude")
+            update_data['longitude'] = coordenadas.get("longitude")
 
     for campo, valor in update_data.items():
         setattr(ponto, campo, valor)

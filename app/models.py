@@ -5,7 +5,8 @@ from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
     ForeignKey,
-    Table
+    Table,
+    Float
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -79,6 +80,8 @@ class SolicitacaoColeta(Base):
     quantidade_itens = Column(Integer, nullable=False)
     endereco = Column(String(500), nullable=False)
     foto_url = Column(String(500), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
@@ -150,6 +153,7 @@ class Empresa(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(255), nullable=False)
     cnpj = Column(String(18), nullable=False, unique=True)
+    endereco = Column(String(500), nullable=False)
     telefone = Column(String(20), nullable=False)
     email = Column(String(255), nullable=False)
     status = Column(
@@ -157,6 +161,8 @@ class Empresa(Base):
         default=StatusEmpresa.ATIVA,
         nullable=False
     )
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
@@ -198,6 +204,8 @@ class PontoColeta(Base):
         default=StatusPontoColeta.ABERTO,
         nullable=False
     )
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

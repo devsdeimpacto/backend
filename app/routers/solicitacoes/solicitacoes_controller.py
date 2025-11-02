@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, func
 
 from app.database import get_session
@@ -17,6 +17,7 @@ from app.schemas import (
     OrdemServicoResponse,
     OrdemServicoList
 )
+from app.geocoding_service import GeocodingService
 
 router = APIRouter(prefix='/solicitacoes', tags=['solicitacoes'])
 
@@ -58,7 +59,7 @@ def gerar_numero_os(session: Session) -> str:
     status_code=HTTPStatus.CREATED,
     response_model=SolicitacaoColetaResponse
 )
-def criar_solicitacao_coleta(
+async def criar_solicitacao_coleta(
     solicitacao_data: SolicitacaoColetaCreate,
     session: T_Session
 ):
@@ -66,6 +67,17 @@ def criar_solicitacao_coleta(
     Cria uma nova solicitação de coleta e
     automaticamente gera uma ordem de serviço associada.
     """
+    # Geocodifica o endereço
+    coordenadas = await GeocodingService.geocode_address(
+        solicitacao_data.endereco
+    )
+    
+    latitude = None
+    longitude = None
+    if coordenadas:
+        latitude = coordenadas.get("latitude")
+        longitude = coordenadas.get("longitude")
+    
     # Cria a solicitação
     nova_solicitacao = SolicitacaoColeta(
         nome_solicitante=solicitacao_data.nome_solicitante,
@@ -76,6 +88,8 @@ def criar_solicitacao_coleta(
         quantidade_itens=solicitacao_data.quantidade_itens,
         endereco=solicitacao_data.endereco,
         foto_url=solicitacao_data.foto_url,
+        latitude=latitude,
+        longitude=longitude,
     )
 
     session.add(nova_solicitacao)
@@ -107,6 +121,8 @@ def criar_solicitacao_coleta(
         "quantidade_itens": nova_solicitacao.quantidade_itens,
         "endereco": nova_solicitacao.endereco,
         "foto_url": nova_solicitacao.foto_url,
+        "latitude": nova_solicitacao.latitude,
+        "longitude": nova_solicitacao.longitude,
         "created_at": nova_solicitacao.created_at,
         "ordem_servico_id": nova_ordem.id,
         "numero_os": nova_ordem.numero_os,
@@ -150,30 +166,33 @@ def listar_solicitacoes(
     # Executar query
     solicitacoes = session.scalars(query).all()
     
-    # Montar response
+    # Montar response usando o schema Pydantic
     items = []
     for solicitacao in solicitacoes:
-        items.append({
-            "id": solicitacao.id,
-            "nome_solicitante": solicitacao.nome_solicitante,
-            "tipo_pessoa": solicitacao.tipo_pessoa,
-            "documento": solicitacao.documento,
-            "email": solicitacao.email,
-            "whatsapp": solicitacao.whatsapp,
-            "quantidade_itens": solicitacao.quantidade_itens,
-            "endereco": solicitacao.endereco,
-            "foto_url": solicitacao.foto_url,
-            "created_at": solicitacao.created_at,
-            "ordem_servico_id": solicitacao.ordem_servico.id,
-            "numero_os": solicitacao.ordem_servico.numero_os,
-        })
+        item = SolicitacaoColetaResponse(
+            id=solicitacao.id,
+            nome_solicitante=solicitacao.nome_solicitante,
+            tipo_pessoa=solicitacao.tipo_pessoa,
+            documento=solicitacao.documento,
+            email=solicitacao.email,
+            whatsapp=solicitacao.whatsapp,
+            quantidade_itens=solicitacao.quantidade_itens,
+            endereco=solicitacao.endereco,
+            foto_url=solicitacao.foto_url,
+            latitude=solicitacao.latitude,
+            longitude=solicitacao.longitude,
+            created_at=solicitacao.created_at,
+            ordem_servico_id=solicitacao.ordem_servico.id,
+            numero_os=solicitacao.ordem_servico.numero_os,
+        )
+        items.append(item)
     
-    return {
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-        "items": items
-    }
+    return SolicitacaoColetaList(
+        total=total,
+        skip=skip,
+        limit=limit,
+        items=items
+    )
 
 
 @router.get(
@@ -218,7 +237,7 @@ def obter_solicitacao(
     '/{solicitacao_id}',
     response_model=SolicitacaoColetaResponse
 )
-def atualizar_solicitacao(
+async def atualizar_solicitacao(
     solicitacao_id: int,
     solicitacao_data: SolicitacaoColetaUpdate,
     session: T_Session
@@ -241,6 +260,15 @@ def atualizar_solicitacao(
     # Atualizar apenas os campos fornecidos
     update_data = solicitacao_data.model_dump(exclude_unset=True)
     
+    # Se o endereço foi alterado, geocodificar novamente
+    if 'endereco' in update_data:
+        coordenadas = await GeocodingService.geocode_address(
+            update_data['endereco']
+        )
+        if coordenadas:
+            update_data['latitude'] = coordenadas.get("latitude")
+            update_data['longitude'] = coordenadas.get("longitude")
+    
     for field, value in update_data.items():
         setattr(solicitacao, field, value)
     
@@ -257,6 +285,8 @@ def atualizar_solicitacao(
         "quantidade_itens": solicitacao.quantidade_itens,
         "endereco": solicitacao.endereco,
         "foto_url": solicitacao.foto_url,
+        "latitude": solicitacao.latitude,
+        "longitude": solicitacao.longitude,
         "created_at": solicitacao.created_at,
         "ordem_servico_id": solicitacao.ordem_servico.id,
         "numero_os": solicitacao.ordem_servico.numero_os,
@@ -287,15 +317,21 @@ def listar_ordens_servico(
     e filtros opcionais.
     Endpoint útil para o coletor visualizar as ordens.
     """
-    # Query base
-    query = select(OrdemServico)
+    # Query base para contagem (sem joinedload)
+    count_query = select(func.count()).select_from(OrdemServico)
+
+    # Query base com join para carregar solicitacao
+    query = (
+        select(OrdemServico)
+        .options(joinedload(OrdemServico.solicitacao))
+    )
 
     # Aplicar filtro de status se fornecido
     if status:
+        count_query = count_query.where(OrdemServico.status == status)
         query = query.where(OrdemServico.status == status)
 
     # Contar total de registros
-    count_query = select(func.count()).select_from(query.subquery())
     total = session.scalar(count_query)
 
     # Aplicar paginação e ordenação
@@ -303,13 +339,26 @@ def listar_ordens_servico(
     query = query.offset(skip).limit(limit)
 
     # Executar query
-    ordens = session.scalars(query).all()
+    ordens = session.scalars(query).unique().all()
+
+    # Montar response com latitude e longitude
+    items = []
+    for ordem in ordens:
+        items.append({
+            "id": ordem.id,
+            "numero_os": ordem.numero_os,
+            "status": ordem.status,
+            "latitude": ordem.solicitacao.latitude,
+            "longitude": ordem.solicitacao.longitude,
+            "created_at": ordem.created_at,
+            "updated_at": ordem.updated_at,
+        })
 
     return {
         "total": total,
         "skip": skip,
         "limit": limit,
-        "items": ordens
+        "items": items
     }
 
 
@@ -326,6 +375,7 @@ def obter_ordem_servico(
     """
     ordem_servico = session.scalar(
         select(OrdemServico)
+        .options(joinedload(OrdemServico.solicitacao))
         .where(OrdemServico.id == ordem_servico_id)
     )
 
@@ -335,7 +385,15 @@ def obter_ordem_servico(
             detail='Ordem de serviço não encontrada'
         )
 
-    return ordem_servico
+    return {
+        "id": ordem_servico.id,
+        "numero_os": ordem_servico.numero_os,
+        "status": ordem_servico.status,
+        "latitude": ordem_servico.solicitacao.latitude,
+        "longitude": ordem_servico.solicitacao.longitude,
+        "created_at": ordem_servico.created_at,
+        "updated_at": ordem_servico.updated_at,
+    }
 
 
 @router.patch(
@@ -353,6 +411,7 @@ def atualizar_status_ordem_servico(
     """
     ordem_servico = session.scalar(
         select(OrdemServico)
+        .options(joinedload(OrdemServico.solicitacao))
         .where(OrdemServico.id == ordem_servico_id)
     )
 
@@ -368,4 +427,12 @@ def atualizar_status_ordem_servico(
     session.commit()
     session.refresh(ordem_servico)
 
-    return ordem_servico
+    return {
+        "id": ordem_servico.id,
+        "numero_os": ordem_servico.numero_os,
+        "status": ordem_servico.status,
+        "latitude": ordem_servico.solicitacao.latitude,
+        "longitude": ordem_servico.solicitacao.longitude,
+        "created_at": ordem_servico.created_at,
+        "updated_at": ordem_servico.updated_at,
+    }

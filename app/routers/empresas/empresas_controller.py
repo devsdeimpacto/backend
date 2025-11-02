@@ -13,6 +13,7 @@ from app.schemas import (
     EmpresaResponse,
     CatadorSimples
 )
+from app.geocoding_service import GeocodingService
 
 router = APIRouter(prefix='/empresas', tags=['empresas'])
 
@@ -24,7 +25,7 @@ T_Session = Annotated[Session, Depends(get_session)]
     status_code=HTTPStatus.CREATED,
     response_model=EmpresaResponse
 )
-def criar_empresa(
+async def criar_empresa(
     empresa_data: EmpresaCreate,
     session: T_Session
 ):
@@ -42,12 +43,26 @@ def criar_empresa(
             detail='CNPJ já cadastrado'
         )
 
+    # Geocodifica o endereço
+    coordenadas = await GeocodingService.geocode_address(
+        empresa_data.endereco
+    )
+    
+    latitude = None
+    longitude = None
+    if coordenadas:
+        latitude = coordenadas.get("latitude")
+        longitude = coordenadas.get("longitude")
+
     nova_empresa = Empresa(
         nome=empresa_data.nome,
         cnpj=empresa_data.cnpj,
+        endereco=empresa_data.endereco,
         telefone=empresa_data.telefone,
         email=empresa_data.email,
-        status=empresa_data.status
+        status=empresa_data.status,
+        latitude=latitude,
+        longitude=longitude,
     )
 
     session.add(nova_empresa)
@@ -97,7 +112,7 @@ def obter_empresa(empresa_id: int, session: T_Session):
     status_code=HTTPStatus.OK,
     response_model=EmpresaResponse
 )
-def atualizar_empresa(
+async def atualizar_empresa(
     empresa_id: int,
     empresa_data: EmpresaUpdate,
     session: T_Session
@@ -117,6 +132,15 @@ def atualizar_empresa(
 
     # Atualiza apenas os campos fornecidos
     update_data = empresa_data.dict(exclude_unset=True)
+
+    # Se o endereço foi alterado, geocodificar novamente
+    if 'endereco' in update_data:
+        coordenadas = await GeocodingService.geocode_address(
+            update_data['endereco']
+        )
+        if coordenadas:
+            update_data['latitude'] = coordenadas.get("latitude")
+            update_data['longitude'] = coordenadas.get("longitude")
 
     for campo, valor in update_data.items():
         setattr(empresa, campo, valor)
