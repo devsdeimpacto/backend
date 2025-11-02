@@ -82,23 +82,25 @@ erDiagram
         string email
         string whatsapp
         int quantidade_itens
+        enum tipo_material 
         string endereco
         string foto_url "nullable"
         float latitude "nullable"
         float longitude "nullable"
         datetime created_at
+        datetime updated_at "nullable"
     }
     
     ORDEM_SERVICO {
         int id PK
-        int solicitacao_id FK
+        int solicitacao_id FK "unique"
         int empresa_id FK "nullable"
         int ponto_coleta_id FK "nullable"
         int catador_id FK "nullable"
         string numero_os UK "OS-YYYY-NNNNN"
         enum status "PENDENTE|EM_ANDAMENTO|CONCLUIDA|CANCELADA"
         datetime created_at
-        datetime updated_at
+        datetime updated_at "nullable"
     }
     
     EMPRESA {
@@ -108,10 +110,11 @@ erDiagram
         string endereco
         string telefone
         string email
-        enum status
-        float latitude
-        float longitude
+        enum status "ATIVA|INATIVA"
+        float latitude "nullable"
+        float longitude "nullable"
         datetime created_at
+        datetime updated_at "nullable"
     }
     
     PONTO_COLETA {
@@ -121,10 +124,11 @@ erDiagram
         string endereco
         string horario_funcionamento
         string telefone
-        enum status
-        float latitude
-        float longitude
+        enum status "ABERTO|FECHADO"
+        float latitude "nullable"
+        float longitude "nullable"
         datetime created_at
+        datetime updated_at "nullable"
     }
     
     CATADOR {
@@ -132,9 +136,10 @@ erDiagram
         string nome
         string cpf UK
         string telefone
-        string email
-        enum status
+        string email "nullable"
+        enum status "ATIVO|INATIVO"
         datetime created_at
+        datetime updated_at "nullable"
     }
     
     CATADORES_EMPRESAS {
@@ -253,51 +258,96 @@ poetry run task lint
 ## 📝 Rotas Principais
 
 ### Solicitações de Coleta
-- `POST /solicitacoes` - Criar solicitação de coleta (gera OS automaticamente)
-- `GET /solicitacoes` - Listar solicitações com filtros (tipo_pessoa, documento)
+- `POST /solicitacoes` - Criar solicitação de coleta (gera OS
+  automaticamente)
+- `GET /solicitacoes` - Listar solicitações com filtros
+  (tipo_pessoa, documento) e paginação
 - `GET /solicitacoes/{id}` - Obter detalhes de uma solicitação
 - `PATCH /solicitacoes/{id}` - Atualizar solicitação
+- `DELETE /solicitacoes/{id}` - Deletar solicitação e OS associada
 
 ### Ordens de Serviço
-- `GET /solicitacoes/ordens-servico` - Listar ordens de serviço com dados completos
-  (solicitação, empresa, ponto de coleta, catador, tipo_pessoa PF/PJ)
-- `GET /solicitacoes/ordens-servico/{id}` - Obter detalhes completos de uma OS
-- `PATCH /solicitacoes/ordens-servico/{id}/status` - Atualizar status da OS
-- `PATCH /solicitacoes/ordens-servico/{id}/atribuir` - Atribuir empresa,
-  ponto de coleta e/ou catador a uma OS
+- `GET /solicitacoes/ordens-servico` - Listar ordens de serviço
+  com dados completos (solicitação, empresa, ponto de coleta,
+  catador, tipo_pessoa PF/PJ) e paginação
+- `GET /solicitacoes/ordens-servico/{id}` - Obter detalhes
+  completos de uma OS
+- `PATCH /solicitacoes/ordens-servico/{id}/status` - Atualizar
+  status da OS
+- `PATCH /solicitacoes/ordens-servico/{id}/atribuir` - Atribuir
+  empresa, ponto de coleta e/ou catador a uma OS
+- `DELETE /solicitacoes/ordens-servico/{id}` - Deletar ordem de
+  serviço (solicitação permanece)
 
 ### Empresas
 - `POST /empresas` - Criar empresa
-- `GET /empresas` - Listar empresas
+- `GET /empresas` - Listar todas as empresas
+- `GET /empresas/{id}` - Obter detalhes de uma empresa
+- `PUT /empresas/{id}` - Atualizar empresa
+- `DELETE /empresas/{id}` - Deletar empresa
+- `GET /empresas/{id}/catadores` - Listar catadores vinculados
+  à empresa
+- `POST /empresas/{id}/catadores/{catador_id}` - Vincular
+  catador à empresa
+- `DELETE /empresas/{id}/catadores/{catador_id}` - Desvincular
+  catador da empresa
 
 ### Pontos de Coleta
 - `POST /pontos-coleta` - Criar ponto de coleta
-- `GET /pontos-coleta` - Listar pontos de coleta
+- `GET /pontos-coleta` - Listar todos os pontos de coleta
+- `GET /pontos-coleta/{id}` - Obter detalhes de um ponto de
+  coleta
+- `GET /pontos-coleta/empresa/{empresa_id}` - Listar pontos de
+  coleta de uma empresa
+- `PUT /pontos-coleta/{id}` - Atualizar ponto de coleta
+- `DELETE /pontos-coleta/{id}` - Deletar ponto de coleta
 
 ### Catadores
-- `POST /catadores` - Criar catador
-- `GET /catadores` - Listar catadores
+- `POST /catadores` - Criar catador (pode vincular empresas
+  na criação)
+- `GET /catadores` - Listar catadores com filtros (status,
+  empresa_id) e paginação
+- `GET /catadores/{id}` - Obter detalhes de um catador
+- `PUT /catadores/{id}` - Atualizar catador
+- `DELETE /catadores/{id}` - Deletar catador
+- `GET /catadores/{id}/empresas` - Listar empresas vinculadas
+  ao catador
+- `POST /catadores/{catador_id}/empresas/{empresa_id}` -
+  Vincular catador à empresa
+- `DELETE /catadores/{catador_id}/empresas/{empresa_id}` -
+  Desvincular catador da empresa
 
 ### Geral
 - `GET /` - Status da API
 
 ## 🔐 Autenticação
 
-O sistema possui rotas de autenticação em `/auth` para gerenciamento
-de usuários e sessões.
+O sistema possui código de autenticação em `/auth`, porém o router
+não está registrado no `main.py` atualmente. As rotas disponíveis
+no código são:
+- `POST /auth/token` - Obter token de acesso (OAuth2)
+- `POST /auth/refresh_token` - Renovar token de acesso
+
+> **Nota:** Para usar as rotas de autenticação, é necessário
+> registrar o router no `main.py`.
 
 ## 🎯 Funcionalidades Principais
 
-- **Gestão de Solicitações**: Criação e atualização de solicitações de coleta
-  com validação de CPF/CNPJ e geocodificação automática
-- **Ordens de Serviço**: Geração automática de OS com numeração sequencial
-  por ano (formato: OS-YYYY-NNNNN)
-- **Atribuição de Recursos**: Sistema para atribuir empresa, ponto de coleta
-  e catador a cada ordem de serviço
-- **Filtros Avançados**: Listagem com filtros por tipo de pessoa (PF/PJ),
-  documento, status, etc.
-- **Geocodificação**: Integração com OpenStreetMap para obtenção de
-  coordenadas a partir de endereços
+- **Gestão de Solicitações**: Criação, atualização e exclusão de
+  solicitações de coleta com validação de CPF/CNPJ e geocodificação
+  automática
+- **Tipo de Material**: Classificação de materiais (METAIS,
+  ELETRONICO, PAPEL, PLASTICO, VIDRO, OUTROS)
+- **Ordens de Serviço**: Geração automática de OS com numeração
+  sequencial por ano (formato: OS-YYYY-NNNNN)
+- **Atribuição de Recursos**: Sistema para atribuir empresa,
+  ponto de coleta e catador a cada ordem de serviço
+- **Filtros Avançados**: Listagem com filtros por tipo de pessoa
+  (PF/PJ), documento, status, etc., com paginação
+- **Geocodificação**: Integração com OpenStreetMap para obtenção
+  de coordenadas a partir de endereços
+- **Gestão de Vínculos**: Sistema para vincular/desvincular
+  catadores a empresas
 
 ## 📄 Sobre o Projeto
 
@@ -308,10 +358,24 @@ Impacto.
 
 Ao listar ou consultar uma ordem de serviço, o sistema retorna:
 
-- Dados da **solicitação** (nome, tipo_pessoa PF/PJ, documento, endereço,
-  coordenadas)
+- Dados da **solicitação** (nome, tipo_pessoa PF/PJ, documento,
+  tipo_material, endereço, coordenadas)
 - **Empresa** atribuída (se houver)
 - **Ponto de coleta** atribuído (se houver)
 - **Catador** atribuído (se houver)
-- Status e informações de data
+- Status e informações de data (created_at, updated_at)
+
+### Paginação
+
+A maioria das listagens suporta paginação através dos parâmetros:
+- `skip`: Número de registros para pular (padrão: 0)
+- `limit`: Limite de registros por página (padrão: 100, máximo: 100)
+
+Exemplo: `GET /solicitacoes?skip=0&limit=10`
+
+### Filtros Disponíveis
+
+- **Solicitações**: `tipo_pessoa`, `documento`
+- **Ordens de Serviço**: `status`
+- **Catadores**: `status`, `empresa_id`
 
