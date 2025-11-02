@@ -43,6 +43,15 @@ class StatusCatador(str, enum.Enum):
     INATIVO = "INATIVO"
 
 
+class TipoMaterial(str, enum.Enum):
+    METAIS = "METAIS"
+    ELETRONICO = "ELETRONICO"
+    PAPEL = "PAPEL"
+    PLASTICO = "PLASTICO"
+    VIDRO = "VIDRO"
+    OUTROS = "OUTROS"
+
+
 # Tabela associativa para relacionamento muitos-para-muitos
 catadores_empresas = Table(
     'catadores_empresas',
@@ -78,6 +87,7 @@ class SolicitacaoColeta(Base):
     email = Column(String(255), nullable=False)
     whatsapp = Column(String(20), nullable=False)
     quantidade_itens = Column(Integer, nullable=False)
+    tipo_material = Column(SQLEnum(TipoMaterial), nullable=False)
     endereco = Column(String(500), nullable=False)
     foto_url = Column(String(500), nullable=True)
     latitude = Column(Float, nullable=True)

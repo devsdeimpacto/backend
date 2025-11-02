@@ -36,6 +36,15 @@ class StatusCatadorEnum(str, Enum):
     INATIVO = "INATIVO"
 
 
+class TipoMaterialEnum(str, Enum):
+    METAIS = "METAIS"
+    ELETRONICO = "ELETRONICO"
+    PAPEL = "PAPEL"
+    PLASTICO = "PLASTICO"
+    VIDRO = "VIDRO"
+    OUTROS = "OUTROS"
+
+
 class OrdemServicoUpdateStatus(BaseModel):
     status: StatusOSEnum
 
@@ -70,6 +79,7 @@ class SolicitacaoColetaCreate(BaseModel):
     email: EmailStr
     whatsapp: str = Field(..., min_length=10, max_length=20)
     quantidade_itens: int = Field(..., gt=0)
+    tipo_material: TipoMaterialEnum
     endereco: str = Field(..., min_length=10, max_length=500)
     foto_url: Optional[str] = Field(None, max_length=500)
 
@@ -105,6 +115,7 @@ class SolicitacaoColetaCreate(BaseModel):
                 "email": "cliente@exemplo.com",
                 "whatsapp": "11987654321",
                 "quantidade_itens": 5,
+                "tipo_material": "PLASTICO",
                 "endereco": (
                     "Rua Exemplo, 123 - Bairro - "
                     "Cidade/UF - CEP"
@@ -122,6 +133,7 @@ class SolicitacaoSimples(BaseModel):
     documento: str
     email: str
     whatsapp: str
+    tipo_material: TipoMaterialEnum
     endereco: str
     latitude: Optional[float]
     longitude: Optional[float]
@@ -136,6 +148,8 @@ class PontoColetaSimples(BaseModel):
     nome: str
     endereco: str
     telefone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
 
     class Config:
         from_attributes = True
@@ -147,6 +161,8 @@ class EmpresaSimples(BaseModel):
     nome: str
     cnpj: str
     status: str
+    latitude: Optional[float]
+    longitude: Optional[float]
 
     class Config:
         from_attributes = True
@@ -205,6 +221,7 @@ class OrdemServicoList(BaseModel):
                             "documento": "123.456.789-00",
                             "email": "joao@email.com",
                             "whatsapp": "11987654321",
+                            "tipo_material": "PLASTICO",
                             "endereco": "Rua A, 123",
                             "latitude": -23.5505,
                             "longitude": -46.6333
@@ -213,13 +230,17 @@ class OrdemServicoList(BaseModel):
                             "id": 1,
                             "nome": "EcoColeta",
                             "cnpj": "12.345.678/0001-90",
-                            "status": "ATIVA"
+                            "status": "ATIVA",
+                            "latitude": -23.5505,
+                            "longitude": -46.6333
                         },
                         "ponto_coleta": {
                             "id": 1,
                             "nome": "Ponto Central",
                             "endereco": "Av Principal, 500",
-                            "telefone": "11987654321"
+                            "telefone": "11987654321",
+                            "latitude": -23.5505,
+                            "longitude": -46.6333
                         },
                         "catador": {
                             "id": 1,
@@ -242,6 +263,7 @@ class SolicitacaoColetaResponse(BaseModel):
     email: str
     whatsapp: str
     quantidade_itens: int
+    tipo_material: TipoMaterialEnum
     endereco: str
     foto_url: Optional[str]
     latitude: Optional[float]
@@ -481,11 +503,16 @@ class CatadorResponse(BaseModel):
         from_attributes = True
 
 class SolicitacaoColetaUpdate(BaseModel):
-    nome_solicitante: Optional[str] = Field(None, min_length=3, max_length=255)
+    nome_solicitante: Optional[str] = Field(
+        None, min_length=3, max_length=255
+    )
     email: Optional[EmailStr] = None
     whatsapp: Optional[str] = Field(None, min_length=10, max_length=20)
     quantidade_itens: Optional[int] = Field(None, gt=0)
-    endereco: Optional[str] = Field(None, min_length=10, max_length=500)
+    tipo_material: Optional[TipoMaterialEnum] = None
+    endereco: Optional[str] = Field(
+        None, min_length=10, max_length=500
+    )
     foto_url: Optional[str] = Field(None, max_length=500)
 
     @validator('whatsapp')
@@ -505,6 +532,7 @@ class SolicitacaoColetaUpdate(BaseModel):
                 "email": "novoemail@exemplo.com",
                 "whatsapp": "11987654321",
                 "quantidade_itens": 10,
+                "tipo_material": "PAPEL",
                 "endereco": "Rua Nova, 456 - Bairro - Cidade/UF",
                 "foto_url": "https://storage.exemplo.com/fotos/67890.jpg"
             }
@@ -532,6 +560,7 @@ class SolicitacaoColetaList(BaseModel):
                         "email": "cliente@exemplo.com",
                         "whatsapp": "11987654321",
                         "quantidade_itens": 5,
+                        "tipo_material": "PLASTICO",
                         "endereco": "Rua Exemplo, 123",
                         "foto_url": "https://storage.exemplo.com/fotos/12345.jpg",
                         "latitude": -23.5505,
