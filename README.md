@@ -68,7 +68,7 @@ graph TB
 ```mermaid
 erDiagram
     SOLICITACAO_COLETA ||--o| ORDEM_SERVICO : "gera"
-    ORDEM_SERVICO }o--|| EMPRESA : "atribuida_a"
+    ORDEM_SERVICO }o--o| EMPRESA : "atribuida_a"
     ORDEM_SERVICO }o--o| PONTO_COLETA : "destinada_a"
     ORDEM_SERVICO }o--o| CATADOR : "executada_por"
     EMPRESA ||--o{ PONTO_COLETA : "possui"
@@ -143,8 +143,8 @@ erDiagram
     }
     
     CATADORES_EMPRESAS {
-        int catador_id FK
-        int empresa_id FK
+        int catador_id FK "CASCADE"
+        int empresa_id FK "CASCADE"
         datetime data_vinculo
     }
 ```
@@ -347,7 +347,8 @@ no código são:
 - **Geocodificação**: Integração com OpenStreetMap para obtenção
   de coordenadas a partir de endereços
 - **Gestão de Vínculos**: Sistema para vincular/desvincular
-  catadores a empresas
+  catadores a empresas com integridade referencial (CASCADE)
+  automática
 
 ## 📄 Sobre o Projeto
 

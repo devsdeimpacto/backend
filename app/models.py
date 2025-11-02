@@ -59,13 +59,13 @@ catadores_empresas = Table(
     Column(
         'catador_id',
         Integer,
-        ForeignKey('catadores.id'),
+        ForeignKey('catadores.id', ondelete='CASCADE'),
         primary_key=True
     ),
     Column(
         'empresa_id',
         Integer,
-        ForeignKey('empresas.id'),
+        ForeignKey('empresas.id', ondelete='CASCADE'),
         primary_key=True
     ),
     Column(
