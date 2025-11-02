@@ -77,26 +77,26 @@ erDiagram
     SOLICITACAO_COLETA {
         int id PK
         string nome_solicitante
-        enum tipo_pessoa
-        string documento
+        enum tipo_pessoa "PF|PJ"
+        string documento "CPF ou CNPJ"
         string email
         string whatsapp
         int quantidade_itens
         string endereco
-        string foto_url
-        float latitude
-        float longitude
+        string foto_url "nullable"
+        float latitude "nullable"
+        float longitude "nullable"
         datetime created_at
     }
     
     ORDEM_SERVICO {
         int id PK
         int solicitacao_id FK
-        int empresa_id FK
-        int ponto_coleta_id FK
-        int catador_id FK
-        string numero_os UK
-        enum status
+        int empresa_id FK "nullable"
+        int ponto_coleta_id FK "nullable"
+        int catador_id FK "nullable"
+        string numero_os UK "OS-YYYY-NNNNN"
+        enum status "PENDENTE|EM_ANDAMENTO|CONCLUIDA|CANCELADA"
         datetime created_at
         datetime updated_at
     }
@@ -144,7 +144,9 @@ erDiagram
     }
 ```
 
-## 🔄 Fluxo de Solicitação de Coleta
+## 🔄 Fluxos do Sistema
+
+### Fluxo de Criação de Solicitação
 
 ```mermaid
 sequenceDiagram
@@ -162,11 +164,32 @@ sequenceDiagram
     Geocoding-->>Controller: {latitude, longitude}
     Controller->>DB: INSERT SolicitacaoColeta
     Controller->>DB: gerar_numero_os()
-    Controller->>DB: INSERT OrdemServico
+    Controller->>DB: INSERT OrdemServico (status: PENDENTE)
     Controller->>DB: COMMIT
     DB-->>Controller: dados salvos
     Controller-->>API: SolicitacaoColetaResponse
     API-->>Cliente: 201 Created
+```
+
+### Fluxo de Atribuição de Recursos
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant API as FastAPI
+    participant Controller as SolicitacoesController
+    participant DB as PostgreSQL
+    
+    Admin->>API: PATCH /ordens-servico/{id}/atribuir
+    API->>Controller: atribuir_ordem_servico()
+    Controller->>DB: Validar Empresa
+    Controller->>DB: Validar PontoColeta
+    Controller->>DB: Validar Catador
+    Controller->>DB: UPDATE OrdemServico
+    Controller->>DB: COMMIT
+    DB-->>Controller: OS atualizada
+    Controller-->>API: OrdemServicoResponse (completo)
+    API-->>Admin: 200 OK
 ```
 
 ## 🚀 Instalação
@@ -229,27 +252,66 @@ poetry run task lint
 
 ## 📝 Rotas Principais
 
-- `GET /` - Status da API
-- `POST /solicitacoes` - Criar solicitação de coleta
-- `GET /solicitacoes` - Listar solicitações
-- `GET /solicitacoes/{id}` - Obter solicitação
+### Solicitações de Coleta
+- `POST /solicitacoes` - Criar solicitação de coleta (gera OS automaticamente)
+- `GET /solicitacoes` - Listar solicitações com filtros (tipo_pessoa, documento)
+- `GET /solicitacoes/{id}` - Obter detalhes de uma solicitação
 - `PATCH /solicitacoes/{id}` - Atualizar solicitação
-- `GET /solicitacoes/ordens-servico` - Listar ordens de serviço
-- `PATCH /solicitacoes/ordens-servico/{id}/status` - Atualizar status
+
+### Ordens de Serviço
+- `GET /solicitacoes/ordens-servico` - Listar ordens de serviço com dados completos
+  (solicitação, empresa, ponto de coleta, catador, tipo_pessoa PF/PJ)
+- `GET /solicitacoes/ordens-servico/{id}` - Obter detalhes completos de uma OS
+- `PATCH /solicitacoes/ordens-servico/{id}/status` - Atualizar status da OS
+- `PATCH /solicitacoes/ordens-servico/{id}/atribuir` - Atribuir empresa,
+  ponto de coleta e/ou catador a uma OS
+
+### Empresas
 - `POST /empresas` - Criar empresa
 - `GET /empresas` - Listar empresas
+
+### Pontos de Coleta
 - `POST /pontos-coleta` - Criar ponto de coleta
 - `GET /pontos-coleta` - Listar pontos de coleta
+
+### Catadores
 - `POST /catadores` - Criar catador
 - `GET /catadores` - Listar catadores
+
+### Geral
+- `GET /` - Status da API
 
 ## 🔐 Autenticação
 
 O sistema possui rotas de autenticação em `/auth` para gerenciamento
 de usuários e sessões.
 
+## 🎯 Funcionalidades Principais
+
+- **Gestão de Solicitações**: Criação e atualização de solicitações de coleta
+  com validação de CPF/CNPJ e geocodificação automática
+- **Ordens de Serviço**: Geração automática de OS com numeração sequencial
+  por ano (formato: OS-YYYY-NNNNN)
+- **Atribuição de Recursos**: Sistema para atribuir empresa, ponto de coleta
+  e catador a cada ordem de serviço
+- **Filtros Avançados**: Listagem com filtros por tipo de pessoa (PF/PJ),
+  documento, status, etc.
+- **Geocodificação**: Integração com OpenStreetMap para obtenção de
+  coordenadas a partir de endereços
+
 ## 📄 Sobre o Projeto
 
 Este projeto foi desenvolvido para o hackathon do programa Devs de
 Impacto.
+
+### Dados Retornados nas Ordens de Serviço
+
+Ao listar ou consultar uma ordem de serviço, o sistema retorna:
+
+- Dados da **solicitação** (nome, tipo_pessoa PF/PJ, documento, endereço,
+  coordenadas)
+- **Empresa** atribuída (se houver)
+- **Ponto de coleta** atribuído (se houver)
+- **Catador** atribuído (se houver)
+- Status e informações de data
 

@@ -21,6 +21,21 @@ class StatusOSEnum(str, Enum):
     CANCELADA = "CANCELADA"
 
 
+class StatusEmpresaEnum(str, Enum):
+    ATIVA = "ATIVA"
+    INATIVA = "INATIVA"
+
+
+class StatusPontoColetaEnum(str, Enum):
+    ABERTO = "ABERTO"
+    FECHADO = "FECHADO"
+
+
+class StatusCatadorEnum(str, Enum):
+    ATIVO = "ATIVO"
+    INATIVO = "INATIVO"
+
+
 class OrdemServicoUpdateStatus(BaseModel):
     status: StatusOSEnum
 
@@ -28,6 +43,22 @@ class OrdemServicoUpdateStatus(BaseModel):
         json_schema_extra = {
             "example": {
                 "status": "EM_ANDAMENTO"
+            }
+        }
+
+
+class OrdemServicoAtribuir(BaseModel):
+    """Schema para atribuir empresa, ponto e catador a uma OS"""
+    empresa_id: Optional[int] = None
+    ponto_coleta_id: Optional[int] = None
+    catador_id: Optional[int] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "empresa_id": 1,
+                "ponto_coleta_id": 2,
+                "catador_id": 3
             }
         }
 
@@ -83,14 +114,66 @@ class SolicitacaoColetaCreate(BaseModel):
         }
 
 
+class SolicitacaoSimples(BaseModel):
+    """Schema simplificado da solicitação para OrdemServico"""
+    id: int
+    nome_solicitante: str
+    tipo_pessoa: TipoPessoaEnum
+    documento: str
+    email: str
+    whatsapp: str
+    endereco: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+
+    class Config:
+        from_attributes = True
+
+
+class PontoColetaSimples(BaseModel):
+    """Schema simplificado do ponto de coleta"""
+    id: int
+    nome: str
+    endereco: str
+    telefone: str
+
+    class Config:
+        from_attributes = True
+
+
+class EmpresaSimples(BaseModel):
+    """Schema simplificado de empresa"""
+    id: int
+    nome: str
+    cnpj: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class CatadorSimples(BaseModel):
+    """Schema simplificado de catador"""
+    id: int
+    nome: str
+    cpf: str
+    telefone: str
+    status: StatusCatadorEnum
+
+    class Config:
+        from_attributes = True
+
+
 class OrdemServicoResponse(BaseModel):
     id: int
     numero_os: str
     status: StatusOSEnum
-    latitude: Optional[float]
-    longitude: Optional[float]
     created_at: datetime
     updated_at: Optional[datetime] = None
+    solicitacao: SolicitacaoSimples
+    empresa: Optional[EmpresaSimples] = None
+    ponto_coleta: Optional[PontoColetaSimples] = None
+    catador: Optional[CatadorSimples] = None
 
     class Config:
         from_attributes = True
@@ -113,10 +196,38 @@ class OrdemServicoList(BaseModel):
                         "id": 1,
                         "numero_os": "OS-2025-00001",
                         "status": "PENDENTE",
-                        "latitude": -23.5505,
-                        "longitude": -46.6333,
                         "created_at": "2025-11-02T10:30:00Z",
-                        "updated_at": None
+                        "updated_at": None,
+                        "solicitacao": {
+                            "id": 1,
+                            "nome_solicitante": "João Silva",
+                            "tipo_pessoa": "PF",
+                            "documento": "123.456.789-00",
+                            "email": "joao@email.com",
+                            "whatsapp": "11987654321",
+                            "endereco": "Rua A, 123",
+                            "latitude": -23.5505,
+                            "longitude": -46.6333
+                        },
+                        "empresa": {
+                            "id": 1,
+                            "nome": "EcoColeta",
+                            "cnpj": "12.345.678/0001-90",
+                            "status": "ATIVA"
+                        },
+                        "ponto_coleta": {
+                            "id": 1,
+                            "nome": "Ponto Central",
+                            "endereco": "Av Principal, 500",
+                            "telefone": "11987654321"
+                        },
+                        "catador": {
+                            "id": 1,
+                            "nome": "Carlos Santos",
+                            "cpf": "987.654.321-00",
+                            "telefone": "11999887766",
+                            "status": "ATIVO"
+                        }
                     }
                 ]
             }
@@ -141,21 +252,6 @@ class SolicitacaoColetaResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class StatusEmpresaEnum(str, Enum):
-    ATIVA = "ATIVA"
-    INATIVA = "INATIVA"
-
-
-class StatusPontoColetaEnum(str, Enum):
-    ABERTO = "ABERTO"
-    FECHADO = "FECHADO"
-
-
-class StatusCatadorEnum(str, Enum):
-    ATIVO = "ATIVO"
-    INATIVO = "INATIVO"
 
 
 # EMPRESA SCHEMAS
@@ -368,29 +464,6 @@ class CatadorUpdate(BaseModel):
                     'Telefone deve ter entre 10 e 13 dígitos'
                 )
         return v
-
-
-# Schema simplificado de empresa para evitar recursão
-class EmpresaSimples(BaseModel):
-    id: int
-    nome: str
-    cnpj: str
-    status: str
-
-    class Config:
-        from_attributes = True
-
-
-# Schema simplificado de catador para evitar recursão
-class CatadorSimples(BaseModel):
-    id: int
-    nome: str
-    cpf: str
-    telefone: str
-    status: StatusCatadorEnum
-
-    class Config:
-        from_attributes = True
 
 
 class CatadorResponse(BaseModel):

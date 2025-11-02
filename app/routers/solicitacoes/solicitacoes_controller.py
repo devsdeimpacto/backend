@@ -7,7 +7,14 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, func
 
 from app.database import get_session
-from app.models import SolicitacaoColeta, OrdemServico, StatusOS
+from app.models import (
+    SolicitacaoColeta,
+    OrdemServico,
+    StatusOS,
+    Empresa,
+    PontoColeta,
+    Catador
+)
 from app.schemas import (
     SolicitacaoColetaCreate,
     SolicitacaoColetaResponse,
@@ -15,7 +22,8 @@ from app.schemas import (
     SolicitacaoColetaList,
     OrdemServicoUpdateStatus,
     OrdemServicoResponse,
-    OrdemServicoList
+    OrdemServicoList,
+    OrdemServicoAtribuir
 )
 from app.geocoding_service import GeocodingService
 
@@ -315,15 +323,21 @@ def listar_ordens_servico(
     """
     Lista todas as ordens de serviço com paginação
     e filtros opcionais.
-    Endpoint útil para o coletor visualizar as ordens.
+    Retorna dados completos incluindo solicitação, empresa,
+    ponto de coleta e catador.
     """
     # Query base para contagem (sem joinedload)
     count_query = select(func.count()).select_from(OrdemServico)
 
-    # Query base com join para carregar solicitacao
+    # Query base com joins para carregar todos os relacionamentos
     query = (
         select(OrdemServico)
-        .options(joinedload(OrdemServico.solicitacao))
+        .options(
+            joinedload(OrdemServico.solicitacao),
+            joinedload(OrdemServico.empresa),
+            joinedload(OrdemServico.ponto_coleta),
+            joinedload(OrdemServico.catador)
+        )
     )
 
     # Aplicar filtro de status se fornecido
@@ -341,24 +355,11 @@ def listar_ordens_servico(
     # Executar query
     ordens = session.scalars(query).unique().all()
 
-    # Montar response com latitude e longitude
-    items = []
-    for ordem in ordens:
-        items.append({
-            "id": ordem.id,
-            "numero_os": ordem.numero_os,
-            "status": ordem.status,
-            "latitude": ordem.solicitacao.latitude,
-            "longitude": ordem.solicitacao.longitude,
-            "created_at": ordem.created_at,
-            "updated_at": ordem.updated_at,
-        })
-
     return {
         "total": total,
         "skip": skip,
         "limit": limit,
-        "items": items
+        "items": ordens
     }
 
 
@@ -371,11 +372,17 @@ def obter_ordem_servico(
     session: T_Session
 ):
     """
-    Obtém os detalhes de uma ordem de serviço específica.
+    Obtém os detalhes completos de uma ordem de serviço,
+    incluindo solicitação, empresa, ponto de coleta e catador.
     """
     ordem_servico = session.scalar(
         select(OrdemServico)
-        .options(joinedload(OrdemServico.solicitacao))
+        .options(
+            joinedload(OrdemServico.solicitacao),
+            joinedload(OrdemServico.empresa),
+            joinedload(OrdemServico.ponto_coleta),
+            joinedload(OrdemServico.catador)
+        )
         .where(OrdemServico.id == ordem_servico_id)
     )
 
@@ -385,15 +392,7 @@ def obter_ordem_servico(
             detail='Ordem de serviço não encontrada'
         )
 
-    return {
-        "id": ordem_servico.id,
-        "numero_os": ordem_servico.numero_os,
-        "status": ordem_servico.status,
-        "latitude": ordem_servico.solicitacao.latitude,
-        "longitude": ordem_servico.solicitacao.longitude,
-        "created_at": ordem_servico.created_at,
-        "updated_at": ordem_servico.updated_at,
-    }
+    return ordem_servico
 
 
 @router.patch(
@@ -411,7 +410,12 @@ def atualizar_status_ordem_servico(
     """
     ordem_servico = session.scalar(
         select(OrdemServico)
-        .options(joinedload(OrdemServico.solicitacao))
+        .options(
+            joinedload(OrdemServico.solicitacao),
+            joinedload(OrdemServico.empresa),
+            joinedload(OrdemServico.ponto_coleta),
+            joinedload(OrdemServico.catador)
+        )
         .where(OrdemServico.id == ordem_servico_id)
     )
 
@@ -427,12 +431,87 @@ def atualizar_status_ordem_servico(
     session.commit()
     session.refresh(ordem_servico)
 
-    return {
-        "id": ordem_servico.id,
-        "numero_os": ordem_servico.numero_os,
-        "status": ordem_servico.status,
-        "latitude": ordem_servico.solicitacao.latitude,
-        "longitude": ordem_servico.solicitacao.longitude,
-        "created_at": ordem_servico.created_at,
-        "updated_at": ordem_servico.updated_at,
-    }
+    return ordem_servico
+
+
+@router.patch(
+    '/ordens-servico/{ordem_servico_id}/atribuir',
+    response_model=OrdemServicoResponse
+)
+def atribuir_ordem_servico(
+    ordem_servico_id: int,
+    atribuicao_data: OrdemServicoAtribuir,
+    session: T_Session
+):
+    """
+    Atribui empresa, ponto de coleta e/ou catador a uma OS.
+    Útil para gerenciar a alocação de recursos para coleta.
+    """
+    # Busca a ordem de serviço
+    ordem_servico = session.scalar(
+        select(OrdemServico)
+        .where(OrdemServico.id == ordem_servico_id)
+    )
+
+    if not ordem_servico:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail='Ordem de serviço não encontrada'
+        )
+
+    # Valida e atribui empresa se fornecida
+    if atribuicao_data.empresa_id is not None:
+        empresa = session.scalar(
+            select(Empresa)
+            .where(Empresa.id == atribuicao_data.empresa_id)
+        )
+        if not empresa:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail='Empresa não encontrada'
+            )
+        ordem_servico.empresa_id = atribuicao_data.empresa_id
+
+    # Valida e atribui ponto de coleta se fornecido
+    if atribuicao_data.ponto_coleta_id is not None:
+        ponto_coleta = session.scalar(
+            select(PontoColeta)
+            .where(PontoColeta.id == atribuicao_data.ponto_coleta_id)
+        )
+        if not ponto_coleta:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail='Ponto de coleta não encontrado'
+            )
+        ordem_servico.ponto_coleta_id = (
+            atribuicao_data.ponto_coleta_id
+        )
+
+    # Valida e atribui catador se fornecido
+    if atribuicao_data.catador_id is not None:
+        catador = session.scalar(
+            select(Catador)
+            .where(Catador.id == atribuicao_data.catador_id)
+        )
+        if not catador:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail='Catador não encontrado'
+            )
+        ordem_servico.catador_id = atribuicao_data.catador_id
+
+    session.commit()
+    
+    # Recarrega com todos os relacionamentos
+    ordem_servico = session.scalar(
+        select(OrdemServico)
+        .options(
+            joinedload(OrdemServico.solicitacao),
+            joinedload(OrdemServico.empresa),
+            joinedload(OrdemServico.ponto_coleta),
+            joinedload(OrdemServico.catador)
+        )
+        .where(OrdemServico.id == ordem_servico_id)
+    )
+
+    return ordem_servico

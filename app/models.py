@@ -126,6 +126,21 @@ class OrdemServico(Base):
         default=StatusOS.PENDENTE,
         nullable=False
     )
+    empresa_id = Column(
+        Integer,
+        ForeignKey("empresas.id"),
+        nullable=True
+    )
+    ponto_coleta_id = Column(
+        Integer,
+        ForeignKey("pontos_coleta.id"),
+        nullable=True
+    )
+    catador_id = Column(
+        Integer,
+        ForeignKey("catadores.id"),
+        nullable=True
+    )
 
     created_at = Column(
         DateTime(timezone=True),
@@ -134,11 +149,14 @@ class OrdemServico(Base):
     )
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Relacionamento
+    # Relacionamentos
     solicitacao = relationship(
         "SolicitacaoColeta",
         back_populates="ordem_servico"
     )
+    empresa = relationship("Empresa")
+    ponto_coleta = relationship("PontoColeta")
+    catador = relationship("Catador")
 
     def __repr__(self):
         return (
