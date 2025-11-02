@@ -204,104 +204,6 @@ def listar_solicitacoes(
 
 
 @router.get(
-    '/{solicitacao_id}',
-    response_model=SolicitacaoColetaResponse
-)
-def obter_solicitacao(
-    solicitacao_id: int,
-    session: T_Session
-):
-    """
-    Obtém os detalhes de uma solicitação de coleta específica.
-    """
-    solicitacao = session.scalar(
-        select(SolicitacaoColeta)
-        .where(SolicitacaoColeta.id == solicitacao_id)
-    )
-    
-    if not solicitacao:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail='Solicitação de coleta não encontrada'
-        )
-    
-    return {
-        "id": solicitacao.id,
-        "nome_solicitante": solicitacao.nome_solicitante,
-        "tipo_pessoa": solicitacao.tipo_pessoa,
-        "documento": solicitacao.documento,
-        "email": solicitacao.email,
-        "whatsapp": solicitacao.whatsapp,
-        "quantidade_itens": solicitacao.quantidade_itens,
-        "endereco": solicitacao.endereco,
-        "foto_url": solicitacao.foto_url,
-        "created_at": solicitacao.created_at,
-        "ordem_servico_id": solicitacao.ordem_servico.id,
-        "numero_os": solicitacao.ordem_servico.numero_os,
-    }
-
-
-@router.patch(
-    '/{solicitacao_id}',
-    response_model=SolicitacaoColetaResponse
-)
-async def atualizar_solicitacao(
-    solicitacao_id: int,
-    solicitacao_data: SolicitacaoColetaUpdate,
-    session: T_Session
-):
-    """
-    Atualiza parcialmente os dados de uma solicitação de coleta.
-    Não é possível alterar o documento ou tipo de pessoa.
-    """
-    solicitacao = session.scalar(
-        select(SolicitacaoColeta)
-        .where(SolicitacaoColeta.id == solicitacao_id)
-    )
-    
-    if not solicitacao:
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail='Solicitação de coleta não encontrada'
-        )
-    
-    # Atualizar apenas os campos fornecidos
-    update_data = solicitacao_data.model_dump(exclude_unset=True)
-    
-    # Se o endereço foi alterado, geocodificar novamente
-    if 'endereco' in update_data:
-        coordenadas = await GeocodingService.geocode_address(
-            update_data['endereco']
-        )
-        if coordenadas:
-            update_data['latitude'] = coordenadas.get("latitude")
-            update_data['longitude'] = coordenadas.get("longitude")
-    
-    for field, value in update_data.items():
-        setattr(solicitacao, field, value)
-    
-    session.commit()
-    session.refresh(solicitacao)
-    
-    return {
-        "id": solicitacao.id,
-        "nome_solicitante": solicitacao.nome_solicitante,
-        "tipo_pessoa": solicitacao.tipo_pessoa,
-        "documento": solicitacao.documento,
-        "email": solicitacao.email,
-        "whatsapp": solicitacao.whatsapp,
-        "quantidade_itens": solicitacao.quantidade_itens,
-        "endereco": solicitacao.endereco,
-        "foto_url": solicitacao.foto_url,
-        "latitude": solicitacao.latitude,
-        "longitude": solicitacao.longitude,
-        "created_at": solicitacao.created_at,
-        "ordem_servico_id": solicitacao.ordem_servico.id,
-        "numero_os": solicitacao.ordem_servico.numero_os,
-    }
-
-
-@router.get(
     '/ordens-servico',
     response_model=OrdemServicoList
 )
@@ -515,3 +417,101 @@ def atribuir_ordem_servico(
     )
 
     return ordem_servico
+
+
+@router.get(
+    '/{solicitacao_id}',
+    response_model=SolicitacaoColetaResponse
+)
+def obter_solicitacao(
+    solicitacao_id: int,
+    session: T_Session
+):
+    """
+    Obtém os detalhes de uma solicitação de coleta específica.
+    """
+    solicitacao = session.scalar(
+        select(SolicitacaoColeta)
+        .where(SolicitacaoColeta.id == solicitacao_id)
+    )
+    
+    if not solicitacao:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail='Solicitação de coleta não encontrada'
+        )
+    
+    return {
+        "id": solicitacao.id,
+        "nome_solicitante": solicitacao.nome_solicitante,
+        "tipo_pessoa": solicitacao.tipo_pessoa,
+        "documento": solicitacao.documento,
+        "email": solicitacao.email,
+        "whatsapp": solicitacao.whatsapp,
+        "quantidade_itens": solicitacao.quantidade_itens,
+        "endereco": solicitacao.endereco,
+        "foto_url": solicitacao.foto_url,
+        "created_at": solicitacao.created_at,
+        "ordem_servico_id": solicitacao.ordem_servico.id,
+        "numero_os": solicitacao.ordem_servico.numero_os,
+    }
+
+
+@router.patch(
+    '/{solicitacao_id}',
+    response_model=SolicitacaoColetaResponse
+)
+async def atualizar_solicitacao(
+    solicitacao_id: int,
+    solicitacao_data: SolicitacaoColetaUpdate,
+    session: T_Session
+):
+    """
+    Atualiza parcialmente os dados de uma solicitação de coleta.
+    Não é possível alterar o documento ou tipo de pessoa.
+    """
+    solicitacao = session.scalar(
+        select(SolicitacaoColeta)
+        .where(SolicitacaoColeta.id == solicitacao_id)
+    )
+    
+    if not solicitacao:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail='Solicitação de coleta não encontrada'
+        )
+    
+    # Atualizar apenas os campos fornecidos
+    update_data = solicitacao_data.model_dump(exclude_unset=True)
+    
+    # Se o endereço foi alterado, geocodificar novamente
+    if 'endereco' in update_data:
+        coordenadas = await GeocodingService.geocode_address(
+            update_data['endereco']
+        )
+        if coordenadas:
+            update_data['latitude'] = coordenadas.get("latitude")
+            update_data['longitude'] = coordenadas.get("longitude")
+    
+    for field, value in update_data.items():
+        setattr(solicitacao, field, value)
+    
+    session.commit()
+    session.refresh(solicitacao)
+    
+    return {
+        "id": solicitacao.id,
+        "nome_solicitante": solicitacao.nome_solicitante,
+        "tipo_pessoa": solicitacao.tipo_pessoa,
+        "documento": solicitacao.documento,
+        "email": solicitacao.email,
+        "whatsapp": solicitacao.whatsapp,
+        "quantidade_itens": solicitacao.quantidade_itens,
+        "endereco": solicitacao.endereco,
+        "foto_url": solicitacao.foto_url,
+        "latitude": solicitacao.latitude,
+        "longitude": solicitacao.longitude,
+        "created_at": solicitacao.created_at,
+        "ordem_servico_id": solicitacao.ordem_servico.id,
+        "numero_os": solicitacao.ordem_servico.numero_os,
+    }
