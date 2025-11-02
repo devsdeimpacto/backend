@@ -21,6 +21,17 @@ class StatusOSEnum(str, Enum):
     CANCELADA = "CANCELADA"
 
 
+class OrdemServicoUpdateStatus(BaseModel):
+    status: StatusOSEnum
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "EM_ANDAMENTO"
+            }
+        }
+
+
 class SolicitacaoColetaCreate(BaseModel):
     nome_solicitante: str = Field(..., min_length=3, max_length=255)
     tipo_pessoa: TipoPessoaEnum
@@ -77,9 +88,35 @@ class OrdemServicoResponse(BaseModel):
     numero_os: str
     status: StatusOSEnum
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class OrdemServicoList(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    items: List['OrdemServicoResponse']
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total": 25,
+                "skip": 0,
+                "limit": 10,
+                "items": [
+                    {
+                        "id": 1,
+                        "numero_os": "OS-2025-00001",
+                        "status": "PENDENTE",
+                        "created_at": "2025-11-02T10:30:00Z",
+                        "updated_at": None
+                    }
+                ]
+            }
+        }
 
 
 class SolicitacaoColetaResponse(BaseModel):
@@ -353,3 +390,65 @@ class CatadorResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class SolicitacaoColetaUpdate(BaseModel):
+    nome_solicitante: Optional[str] = Field(None, min_length=3, max_length=255)
+    email: Optional[EmailStr] = None
+    whatsapp: Optional[str] = Field(None, min_length=10, max_length=20)
+    quantidade_itens: Optional[int] = Field(None, gt=0)
+    endereco: Optional[str] = Field(None, min_length=10, max_length=500)
+    foto_url: Optional[str] = Field(None, max_length=500)
+
+    @validator('whatsapp')
+    def validate_whatsapp(cls, v):
+        if v:
+            apenas_numeros = re.sub(r'\D', '', v)
+            if len(apenas_numeros) < 10 or len(apenas_numeros) > 13:
+                raise ValueError(
+                    'WhatsApp deve ter entre 10 e 13 dígitos'
+                )
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nome_solicitante": "João Silva Santos",
+                "email": "novoemail@exemplo.com",
+                "whatsapp": "11987654321",
+                "quantidade_itens": 10,
+                "endereco": "Rua Nova, 456 - Bairro - Cidade/UF",
+                "foto_url": "https://storage.exemplo.com/fotos/67890.jpg"
+            }
+        }
+
+
+class SolicitacaoColetaList(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    items: List[SolicitacaoColetaResponse]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total": 50,
+                "skip": 0,
+                "limit": 10,
+                "items": [
+                    {
+                        "id": 1,
+                        "nome_solicitante": "João Silva",
+                        "tipo_pessoa": "PF",
+                        "documento": "123.456.789-00",
+                        "email": "cliente@exemplo.com",
+                        "whatsapp": "11987654321",
+                        "quantidade_itens": 5,
+                        "endereco": "Rua Exemplo, 123",
+                        "foto_url": "https://storage.exemplo.com/fotos/12345.jpg",
+                        "created_at": "2025-11-02T10:30:00Z",
+                        "ordem_servico_id": 1,
+                        "numero_os": "OS-2025-00001"
+                    }
+                ]
+            }
+        }
