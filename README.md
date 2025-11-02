@@ -67,7 +67,10 @@ graph TB
 
 ```mermaid
 erDiagram
-    SOLICITACAO_COLETA ||--o| ORDEM_SERVICO : "tem"
+    SOLICITACAO_COLETA ||--o| ORDEM_SERVICO : "gera"
+    ORDEM_SERVICO }o--|| EMPRESA : "atribuida_a"
+    ORDEM_SERVICO }o--o| PONTO_COLETA : "destinada_a"
+    ORDEM_SERVICO }o--o| CATADOR : "executada_por"
     EMPRESA ||--o{ PONTO_COLETA : "possui"
     EMPRESA }o--o{ CATADOR : "vincula"
     
@@ -89,6 +92,9 @@ erDiagram
     ORDEM_SERVICO {
         int id PK
         int solicitacao_id FK
+        int empresa_id FK
+        int ponto_coleta_id FK
+        int catador_id FK
         string numero_os UK
         enum status
         datetime created_at
