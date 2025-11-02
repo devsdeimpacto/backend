@@ -33,11 +33,11 @@ empresas, pontos de coleta, catadores e solicitantes.
 graph TB
     Client[Cliente/Frontend] --> FastAPI[FastAPI App]
     
-    FastAPI --> Router1[/solicitacoes]
-    FastAPI --> Router2[/empresas]
-    FastAPI --> Router3[/pontos_coleta]
-    FastAPI --> Router4[/catadores]
-    FastAPI --> Router5[/auth]
+    FastAPI --> Router1["/solicitacoes"]
+    FastAPI --> Router2["/empresas"]
+    FastAPI --> Router3["/pontos_coleta"]
+    FastAPI --> Router4["/catadores"]
+    FastAPI --> Router5["/auth"]
     
     Router1 --> Controller1[SolicitacoesController]
     Router2 --> Controller2[EmpresasController]
